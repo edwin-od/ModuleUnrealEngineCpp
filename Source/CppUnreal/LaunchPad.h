@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "PaintBall.generated.h"
+#include "LaunchPad.generated.h"
 
 UCLASS()
-class CPPUNREAL_API APaintBall : public AActor
+class CPPUNREAL_API ALaunchPad : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	APaintBall();
+	ALaunchPad();
 
 protected:
 	// Called when the game starts or when spawned
@@ -28,4 +28,5 @@ public:
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
 };
