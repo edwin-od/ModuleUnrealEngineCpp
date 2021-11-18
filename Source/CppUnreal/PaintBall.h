@@ -12,8 +12,8 @@ UCLASS()
 class CPPUNREAL_API APaintBall : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	APaintBall();
 
@@ -21,12 +21,15 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* StaticMesh;
+
+	UPROPERTY(VisibleAnywhere)
+	float ProjectileSpeed = 1000.0f;
 
 	UPROPERTY(VisibleAnywhere)
 	UProjectileMovementComponent* Projectile;

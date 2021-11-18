@@ -47,6 +47,14 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 
 	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
 	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+
+	ShootLocation = CreateDefaultSubobject<USceneComponent>(TEXT("PaintBall_Shoot_Location"));
+	ShootLocation->SetRelativeLocation(FVector(100.0f, 0.0f, 100.0f));
+	ShootLocation->SetRelativeRotation(FRotator(25.0f, 0.0f, 0.0f));
+
+	ShootLocation->SetupAttachment(RootComponent);
+
+	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -94,12 +102,12 @@ void ACppUnrealCharacter::OnResetVR()
 
 void ACppUnrealCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
 {
-		Jump();
+	Jump();
 }
 
 void ACppUnrealCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Location)
 {
-		StopJumping();
+	StopJumping();
 }
 
 void ACppUnrealCharacter::TurnAtRate(float Rate)
@@ -130,12 +138,12 @@ void ACppUnrealCharacter::MoveForward(float Value)
 
 void ACppUnrealCharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) )
+	if ((Controller != nullptr) && (Value != 0.0f))
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
-	
+
 		// get right vector 
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		// add movement in that direction
@@ -145,11 +153,6 @@ void ACppUnrealCharacter::MoveRight(float Value)
 
 void ACppUnrealCharacter::ShootPaintBall()
 {
-	if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Some debug message!"));
-
-	FVector Location(0.0f, 0.0f, 0.0f);
-	FRotator Rotation(0.0f, 0.0f, 0.0f);
 	FActorSpawnParameters SpawnInfo;
-	GetWorld()->SpawnActor<APaintBall>(Location, Rotation, SpawnInfo);
+	GetWorld()->SpawnActor<APaintBall>(ShootLocation->GetComponentLocation(), ShootLocation->GetComponentRotation(), SpawnInfo);
 }

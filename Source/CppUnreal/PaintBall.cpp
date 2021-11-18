@@ -8,7 +8,7 @@
 // Sets default values
 APaintBall::APaintBall()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("StaticMesh'/Game/StarterContent/Shapes/Shape_Sphere'"));
@@ -29,8 +29,8 @@ APaintBall::APaintBall()
 
 	Projectile = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("PaintBall_Projectile"));
 
-	Projectile->MaxSpeed = 3000.0f;
-	Projectile->InitialSpeed = 3000.0f;
+	Projectile->MaxSpeed = ProjectileSpeed;
+	Projectile->InitialSpeed = ProjectileSpeed;
 }
 
 // Called when the game starts or when spawned
