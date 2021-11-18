@@ -9,6 +9,8 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/SpringArmComponent.h"
 
+#include "PaintBall.h"
+
 //////////////////////////////////////////////////////////////////////////
 // ACppUnrealCharacter
 
@@ -74,6 +76,8 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 
 	// VR headset functionality
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &ACppUnrealCharacter::OnResetVR);
+
+	PlayerInputComponent->BindAction("Shoot", IE_Pressed, this, &ACppUnrealCharacter::ShootPaintBall);
 }
 
 
@@ -137,4 +141,15 @@ void ACppUnrealCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
+}
+
+void ACppUnrealCharacter::ShootPaintBall()
+{
+	if (GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Some debug message!"));
+
+	FVector Location(0.0f, 0.0f, 0.0f);
+	FRotator Rotation(0.0f, 0.0f, 0.0f);
+	FActorSpawnParameters SpawnInfo;
+	GetWorld()->SpawnActor<APaintBall>(Location, Rotation, SpawnInfo);
 }

@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "PaintBall.generated.h"
 
+class UProjectileMovementComponent;
+
 UCLASS()
 class CPPUNREAL_API APaintBall : public AActor
 {
@@ -25,6 +27,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* StaticMesh;
+
+	UPROPERTY(VisibleAnywhere)
+	UProjectileMovementComponent* Projectile;
+	//class UProjectileMovementComponent* Projectile; // equivalent to forward decleration
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);

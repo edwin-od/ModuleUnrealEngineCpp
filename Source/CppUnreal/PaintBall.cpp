@@ -3,6 +3,7 @@
 
 #include "PaintBall.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 
 // Sets default values
 APaintBall::APaintBall()
@@ -11,7 +12,6 @@ APaintBall::APaintBall()
 	PrimaryActorTick.bCanEverTick = false;
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("StaticMesh'/Game/StarterContent/Shapes/Shape_Sphere'"));
-
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PaintBall_SM"));
 
 	if (CubeMesh.Succeeded())
@@ -19,17 +19,24 @@ APaintBall::APaintBall()
 		StaticMesh->SetStaticMesh(CubeMesh.Object);
 	}
 
+	StaticMesh->SetWorldScale3D(FVector(0.25f, 0.25f, 0.25f));
 	StaticMesh->SetSimulatePhysics(true);
 	StaticMesh->OnComponentHit.AddDynamic(this, &APaintBall::OnHit);
+	StaticMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	StaticMesh->SetNotifyRigidBodyCollision(true);
 
 	RootComponent = StaticMesh;
+
+	Projectile = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("PaintBall_Projectile"));
+
+	Projectile->MaxSpeed = 3000.0f;
+	Projectile->InitialSpeed = 3000.0f;
 }
 
 // Called when the game starts or when spawned
 void APaintBall::BeginPlay()
 {
 	Super::BeginPlay();
-	GLog->Log("Hello World");
 }
 
 // Called every frame
@@ -41,12 +48,13 @@ void APaintBall::Tick(float DeltaTime)
 
 void APaintBall::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	GLog->Log(OtherActor->GetName());
 	ACharacter* Character = Cast<ACharacter>(OtherActor);
 
 	if (Character)
 	{
-		// Destroy ball
+		Destroy();
 		return;
 	}
+
+	Destroy();
 }
