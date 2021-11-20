@@ -36,6 +36,8 @@ void AHPChangeTrigger::OnOverlapBegin(class AActor* OverlappedActor, class AActo
         if (!Character)
             return;
 
+        ChangeCharacterHP(Character);
+
         FTimerDelegate ChangeHPTimerDelegate;
         ChangeHPTimerDelegate.BindUFunction(this, FName("ChangeCharacterHP"), Character);
         GetWorldTimerManager().SetTimer(ChangeHPTimerHandle, ChangeHPTimerDelegate, ChangeHPTimerValue, true);

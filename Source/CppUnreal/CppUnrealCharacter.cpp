@@ -230,7 +230,7 @@ void ACppUnrealCharacter::SetHP(int Value)
 		if (HP == MinHP)
 			Die();
 
-		PRINT("HP : " + FString::FromInt(HP));
+		PRINT("HP " + FString::FromInt(HP));
 	}
 }
 
@@ -270,7 +270,7 @@ void ACppUnrealCharacter::GrabItem()
 		FHitResult Hit(ForceInit);
 		FVector start = GetMesh()->GetBoneLocation("Head", EBoneSpaces::WorldSpace);
 		FVector Direction = UKismetMathLibrary::GetDirectionUnitVector(GetFollowCamera()->GetComponentLocation(), start);
-		FVector End = start + (Direction * 2000.f);
+		FVector End = start + (Direction * GrabDistance);
 		FCollisionQueryParams CollisionParams;
 		CollisionParams.AddIgnoredActor(this);
 
