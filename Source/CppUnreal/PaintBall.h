@@ -22,18 +22,18 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	UStaticMeshComponent* StaticMesh;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	float ProjectileSpeed = 1000.0f;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
+	FLinearColor PaintColor;
+
+	UPROPERTY()
 	UProjectileMovementComponent* Projectile;
-	//class UProjectileMovementComponent* Projectile; // equivalent to forward decleration
 
 	UFUNCTION()
 	void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);

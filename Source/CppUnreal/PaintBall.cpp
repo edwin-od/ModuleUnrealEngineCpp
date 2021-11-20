@@ -5,6 +5,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
+#include "PaintDecal.h"
+
 // Sets default values
 APaintBall::APaintBall()
 {
@@ -25,6 +27,17 @@ APaintBall::APaintBall()
 	StaticMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
 	StaticMesh->SetNotifyRigidBodyCollision(true);
 
+	PaintColor = FLinearColor(FVector4(FMath::RandRange(0.0f, 1.0f), FMath::RandRange(0.0f, 1.0f), FMath::RandRange(0.0f, 1.0f), 1.0f));
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/PainBallMaterial'"));
+	if (Material.Succeeded())
+	{
+		UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(Material.Object, StaticMesh, "PaintBall_Instance_MAT");
+		Mat->SetVectorParameterValue("PaintColor", PaintColor);
+
+		StaticMesh->SetMaterial(0, Mat);
+	}
+
 	RootComponent = StaticMesh;
 
 	Projectile = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("PaintBall_Projectile"));
@@ -39,12 +52,6 @@ void APaintBall::BeginPlay()
 	Super::BeginPlay();
 }
 
-// Called every frame
-void APaintBall::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
 
 void APaintBall::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
@@ -55,6 +62,9 @@ void APaintBall::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UP
 		Destroy();
 		return;
 	}
+
+	APaintDecal* DecalInstance = GetWorld()->SpawnActor<APaintDecal>(Hit.ImpactPoint, Hit.ImpactNormal.Rotation() + FRotator(90.0, 0.0, 0.0));
+	DecalInstance->SetDecalColor(PaintColor);
 
 	Destroy();
 }

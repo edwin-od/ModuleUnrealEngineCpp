@@ -10,6 +10,9 @@
 #include "GameFramework/SpringArmComponent.h"
 
 #include "PaintBall.h"
+#include "CppUnrealGameMode.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "PhysicsEngine/PhysicsHandleComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ACppUnrealCharacter
@@ -50,11 +53,44 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 
 	ShootLocation = CreateDefaultSubobject<USceneComponent>(TEXT("PaintBall_Shoot_Location"));
 	ShootLocation->SetRelativeLocation(FVector(100.0f, 0.0f, 100.0f));
-	ShootLocation->SetRelativeRotation(FRotator(25.0f, 0.0f, 0.0f));
-
+	ShootLocation->SetRelativeRotation(FRotator(15.0f, 0.0f, 0.0f));
 	ShootLocation->SetupAttachment(RootComponent);
 
+	GrabLocation = CreateDefaultSubobject<USceneComponent>(TEXT("Item_Grab_Location"));
+	GrabLocation->SetRelativeLocation(FVector(150.0f, 0.0f, 0.0f));
+	GrabLocation->SetupAttachment(RootComponent);
+
+	PhysicsHandle = CreateDefaultSubobject<UPhysicsHandleComponent>(TEXT("PhysicsHandle"));
+
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
+
+	HP = MaxHP;
+	bIsDead = false;
+	ItemGrabbed = nullptr;
+
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/SpawnEffect'"));
+	SpawnEffectMaterial = Material.Succeeded() ? Material.Object : nullptr;
+}
+
+// Called when the game starts or when spawned
+void ACppUnrealCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	BodyInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(0), GetMesh(), "Body_Instance_MAT");
+	GetMesh()->SetMaterial(0, BodyInstanceMaterial);
+
+	HeadInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(1), GetMesh(), "Head_Instance_MAT");
+	GetMesh()->SetMaterial(1, HeadInstanceMaterial);
+
+	if (SpawnEffectMaterial)
+	{
+		SpawnEffectInstanceMaterial = UMaterialInstanceDynamic::Create(SpawnEffectMaterial, GetMesh(), "SpawnEffect_Instance_MAT");
+		SpawnEffectInstanceMaterial->SetScalarParameterValue("Time", 0.0f);
+
+		GetMesh()->SetMaterial(0, SpawnEffectInstanceMaterial);
+		GetMesh()->SetMaterial(1, SpawnEffectInstanceMaterial);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -86,6 +122,7 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("ResetVR", IE_Pressed, this, &ACppUnrealCharacter::OnResetVR);
 
 	PlayerInputComponent->BindAction("Shoot", IE_Pressed, this, &ACppUnrealCharacter::ShootPaintBall);
+	PlayerInputComponent->BindAction("Grab", IE_Pressed, this, &ACppUnrealCharacter::GrabItem);
 }
 
 
@@ -151,8 +188,103 @@ void ACppUnrealCharacter::MoveRight(float Value)
 	}
 }
 
+// Called every frame
+void ACppUnrealCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	if (GetMesh()->GetMaterial(0) == SpawnEffectInstanceMaterial)
+	{
+		float time = 0;
+		SpawnEffectInstanceMaterial->GetScalarParameterValue(FName(TEXT("Time")), time);
+		time += DeltaTime / 2;
+		SpawnEffectInstanceMaterial->SetScalarParameterValue("Time", time);
+		if (time >= SpawnEffectDuration)
+		{
+			GetMesh()->SetMaterial(0, BodyInstanceMaterial);
+			GetMesh()->SetMaterial(1, HeadInstanceMaterial);
+		}
+	}
+
+	if (ItemGrabbed)
+		PhysicsHandle->SetTargetLocationAndRotation(GrabLocation->GetComponentLocation(), GrabLocation->GetComponentRotation());
+}
+
+void ACppUnrealCharacter::PRINT(FString str)
+{
+	if (GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, str);
+}
+
 void ACppUnrealCharacter::ShootPaintBall()
 {
-	FActorSpawnParameters SpawnInfo;
-	GetWorld()->SpawnActor<APaintBall>(ShootLocation->GetComponentLocation(), ShootLocation->GetComponentRotation(), SpawnInfo);
+	GetWorld()->SpawnActor<APaintBall>(ShootLocation->GetComponentLocation(), ShootLocation->GetComponentRotation());
+}
+
+void ACppUnrealCharacter::SetHP(int Value)
+{
+	if (!bIsDead)
+	{
+		HP = FMath::Clamp(Value, MinHP, MaxHP);
+
+		if (HP == MinHP)
+			Die();
+
+		PRINT("HP : " + FString::FromInt(HP));
+	}
+}
+
+void ACppUnrealCharacter::ChangeHP(int ChangeValue)
+{
+	SetHP(HP + ChangeValue);
+}
+
+void ACppUnrealCharacter::Die()
+{
+	GetMesh()->SetSimulatePhysics(true);
+	GetCharacterMovement()->DisableMovement();
+
+	GetWorldTimerManager().SetTimer(RespawnTimerHandle, this, &ACppUnrealCharacter::Respawn, RespawnDelay, false);
+
+	bIsDead = true;
+}
+
+void ACppUnrealCharacter::Respawn()
+{
+	AController* ControllerReference = GetController();
+
+	Destroy();
+	
+	ACppUnrealGameMode* GameMode = Cast<ACppUnrealGameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->RestartPlayer(ControllerReference);
+
+	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
+
+	bIsDead = false;
+}
+
+void ACppUnrealCharacter::GrabItem()
+{
+	if (!ItemGrabbed)
+	{
+		FHitResult Hit(ForceInit);
+		FVector start = GetMesh()->GetBoneLocation("Head", EBoneSpaces::WorldSpace);
+		FVector Direction = UKismetMathLibrary::GetDirectionUnitVector(GetFollowCamera()->GetComponentLocation(), start);
+		FVector End = start + (Direction * 2000.f);
+		FCollisionQueryParams CollisionParams;
+		CollisionParams.AddIgnoredActor(this);
+
+		GetWorld()->LineTraceSingleByChannel(Hit, start, End, ECC_PhysicsBody, CollisionParams);
+
+		if (Hit.GetActor() && Hit.GetActor()->ActorHasTag("Item"))
+		{
+			PhysicsHandle->GrabComponentAtLocationWithRotation(Hit.GetComponent(), "", Hit.GetComponent()->GetComponentLocation(), Hit.GetComponent()->GetComponentRotation());
+			ItemGrabbed = Hit.GetActor();
+		}
+	}
+	else
+	{
+		PhysicsHandle->ReleaseComponent();
+		ItemGrabbed = nullptr;
+	}
 }

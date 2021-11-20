@@ -63,18 +63,86 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interface
 
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
-	UPROPERTY(VisibleAnywhere)
-	FVector ShootLocationOffsetFromHead = FVector(0.0f, 0.0f, 0.0f);
+	// Called every frame
+	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	int MinHP = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	int MaxHP = 100;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	float RespawnDelay = 3.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	float SpawnEffectDuration = 1.15f;
+
+	UPROPERTY()
+	bool bIsDead;
 
 	UPROPERTY(VisibleAnywhere)
+	UMaterialInterface* SpawnEffectMaterial;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* SpawnEffectInstanceMaterial;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* HeadInstanceMaterial;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* BodyInstanceMaterial;
+
+	UPROPERTY()
+	TArray<UMaterialInterface*> MeshBaseMaterials;
+
+	UPROPERTY()
 	USceneComponent* ShootLocation;
 
+	UPROPERTY()
+	USceneComponent* GrabLocation;
+
+	UPROPERTY()
+	AActor* ItemGrabbed;
+
+	UPROPERTY()
+	class UPhysicsHandleComponent* PhysicsHandle;
+
+	UPROPERTY()
+	FTimerHandle RespawnTimerHandle;
+
+	UPROPERTY()
+	int HP;
+
+	UFUNCTION()
+	void PRINT(FString str);
+
+	UFUNCTION()
+	void GrabItem();
+
+	UFUNCTION()
 	void ShootPaintBall();
+
+	UFUNCTION()
+	void SetHP(int Value);
+
+	UFUNCTION()
+	void ChangeHP(int ChangeValue);
+
+	UFUNCTION()
+	void Die();
+
+	UFUNCTION()
+	void Respawn();
+
 };
 

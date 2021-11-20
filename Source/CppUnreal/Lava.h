@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "LaunchPad.generated.h"
+#include "Lava.generated.h"
 
 UCLASS()
-class CPPUNREAL_API ALaunchPad : public AActor
+class CPPUNREAL_API ALava : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	ALaunchPad();
+	ALava();
 
 protected:
 	// Called when the game starts or when spawned
