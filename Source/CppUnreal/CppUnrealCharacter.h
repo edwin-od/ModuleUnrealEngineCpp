@@ -75,20 +75,32 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	int MinHP = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	int MaxHP = 100;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	float RespawnDelay = 3.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	float SpawnEffectDuration = 1.15f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere)
 	float GrabDistance = 5000.0f;
+
+	UPROPERTY(EditAnywhere)
+	float IdleAnimationTimout = 10.0f;
+
+	UPROPERTY(BlueprintReadOnly)
+	bool bIdleAnimationTimedOut;
+
+	UPROPERTY()
+	TSubclassOf<UUserWidget> PauseMenuWidget;
+
+	UPROPERTY()
+	FTimerHandle IdleAnimationTimerHandle;
 
 	UPROPERTY()
 	bool bIsDead;
@@ -136,6 +148,9 @@ public:
 	void ShootPaintBall();
 
 	UFUNCTION()
+	void CrouchAction();
+
+	UFUNCTION()
 	void SetHP(int Value);
 
 	UFUNCTION()
@@ -146,6 +161,18 @@ public:
 
 	UFUNCTION()
 	void Respawn();
+
+	UFUNCTION()
+	void AnyKeyPressed();
+
+	UFUNCTION()
+	void AnyKeyReleased();
+
+	UFUNCTION()
+	void IdleAnimationTimedOut();
+
+	UFUNCTION()
+	void PauseGame();
 
 };
 

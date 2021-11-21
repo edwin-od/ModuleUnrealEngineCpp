@@ -15,11 +15,10 @@ ALava::ALava()
 
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Lava_SM"));
 
-	if (CubeMesh.Succeeded())
-	{
-		StaticMesh->SetStaticMesh(CubeMesh.Object);
-	}
+	if (!CubeMesh.Succeeded() || !StaticMesh)
+		return;
 
+	StaticMesh->SetStaticMesh(CubeMesh.Object);
 	StaticMesh->OnComponentHit.AddDynamic(this, &ALava::OnHit);
 
 	RootComponent = StaticMesh;

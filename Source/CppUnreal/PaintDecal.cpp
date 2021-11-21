@@ -19,7 +19,8 @@ APaintDecal::APaintDecal()
 	if (Material.Succeeded())
 	{
 		DecalInstanceMaterial = UMaterialInstanceDynamic::Create(Material.Object, DecalComponent, "PaintDecal_Instance_MAT");
-		DecalComponent->SetDecalMaterial(DecalInstanceMaterial);
+		if(DecalInstanceMaterial)
+			DecalComponent->SetDecalMaterial(DecalInstanceMaterial);
 	}
 }
 
@@ -31,5 +32,6 @@ void APaintDecal::BeginPlay()
 
 void APaintDecal::SetDecalColor(FLinearColor PaintColor)
 {
-	DecalInstanceMaterial->SetVectorParameterValue("PaintColor", PaintColor);
+	if(DecalInstanceMaterial)
+		DecalInstanceMaterial->SetVectorParameterValue("PaintColor", PaintColor);
 }

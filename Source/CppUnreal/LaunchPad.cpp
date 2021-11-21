@@ -14,11 +14,10 @@ ALaunchPad::ALaunchPad()
 
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LaunchPad_SM"));
 
-	if (CubeMesh.Succeeded())
-	{
-		StaticMesh->SetStaticMesh(CubeMesh.Object);
-	}
+	if (!CubeMesh.Succeeded() || !StaticMesh)
+		return;
 
+	StaticMesh->SetStaticMesh(CubeMesh.Object);
 	StaticMesh->OnComponentHit.AddDynamic(this, &ALaunchPad::OnHit);
 
 	RootComponent = StaticMesh;

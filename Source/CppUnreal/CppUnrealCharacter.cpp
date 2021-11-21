@@ -13,6 +13,7 @@
 #include "CppUnrealGameMode.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
+#include "Blueprint/UserWidget.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ACppUnrealCharacter
@@ -67,9 +68,13 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	HP = MaxHP;
 	bIsDead = false;
 	ItemGrabbed = nullptr;
+	bIdleAnimationTimedOut = false;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/SpawnEffect'"));
 	SpawnEffectMaterial = Material.Succeeded() ? Material.Object : nullptr;
+
+	static ConstructorHelpers::FClassFinder<UUserWidget> Widget(TEXT("WidgetBlueprint'/Game/ThirdPersonCPP/UI/PauseMenu'"));
+	PauseMenuWidget = Widget.Succeeded() ? Widget.Class : nullptr;
 }
 
 // Called when the game starts or when spawned
@@ -123,6 +128,10 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 
 	PlayerInputComponent->BindAction("Shoot", IE_Pressed, this, &ACppUnrealCharacter::ShootPaintBall);
 	PlayerInputComponent->BindAction("Grab", IE_Pressed, this, &ACppUnrealCharacter::GrabItem);
+	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &ACppUnrealCharacter::CrouchAction);
+	PlayerInputComponent->BindAction("Any", IE_Pressed, this, &ACppUnrealCharacter::AnyKeyPressed);
+	PlayerInputComponent->BindAction("Any", IE_Released, this, &ACppUnrealCharacter::AnyKeyReleased);
+	PlayerInputComponent->BindAction("Pause", IE_Pressed, this, &ACppUnrealCharacter::PauseGame);
 }
 
 
@@ -208,6 +217,9 @@ void ACppUnrealCharacter::Tick(float DeltaTime)
 
 	if (ItemGrabbed)
 		PhysicsHandle->SetTargetLocationAndRotation(GrabLocation->GetComponentLocation(), GrabLocation->GetComponentRotation());
+
+	// Tourner avec la camera
+	SetActorRotation(((FVector::CrossProduct(GetFollowCamera()->GetForwardVector(), FVector(0.0f, 0.0f, 1.0f))).Rotation() + FRotator(0.0f, 90.0f, 0.0f)));
 }
 
 void ACppUnrealCharacter::PRINT(FString str)
@@ -256,11 +268,13 @@ void ACppUnrealCharacter::Respawn()
 	Destroy();
 	
 	ACppUnrealGameMode* GameMode = Cast<ACppUnrealGameMode>(GetWorld()->GetAuthGameMode());
-	GameMode->RestartPlayer(ControllerReference);
+	if (GameMode)
+	{
+		GameMode->RestartPlayer(ControllerReference);
+		bIsDead = false;
+	}
 
 	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
-
-	bIsDead = false;
 }
 
 void ACppUnrealCharacter::GrabItem()
@@ -286,5 +300,53 @@ void ACppUnrealCharacter::GrabItem()
 	{
 		PhysicsHandle->ReleaseComponent();
 		ItemGrabbed = nullptr;
+	}
+}
+
+void ACppUnrealCharacter::CrouchAction()
+{
+	if (GetCharacterMovement()->IsCrouching())
+		GetCharacterMovement()->bWantsToCrouch = false;
+		//GetCharacterMovement()->UnCrouch();
+	else
+		GetCharacterMovement()->bWantsToCrouch = true;
+		//GetCharacterMovement()->Crouch();
+}
+
+void ACppUnrealCharacter::AnyKeyPressed()
+{
+	bIdleAnimationTimedOut = false;
+}
+
+void ACppUnrealCharacter::AnyKeyReleased()
+{
+	GetWorldTimerManager().SetTimer(IdleAnimationTimerHandle, this, &ACppUnrealCharacter::IdleAnimationTimedOut, IdleAnimationTimout, false);
+}
+
+void ACppUnrealCharacter::IdleAnimationTimedOut()
+{
+	bIdleAnimationTimedOut = true;
+	GetWorldTimerManager().ClearTimer(IdleAnimationTimerHandle);
+}
+
+void ACppUnrealCharacter::PauseGame()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		bool bIsPaused = PlayerController->SetPause(true);
+
+		if (bIsPaused)
+		{
+			PlayerController->bShowMouseCursor = true;
+			PlayerController->bEnableClickEvents = true;
+			PlayerController->bEnableMouseOverEvents = true;
+
+			if (PauseMenuWidget)
+			{
+				UUserWidget* PauseMenuWidgetInstance = CreateWidget<UUserWidget>(GetGameInstance(), PauseMenuWidget);
+				PauseMenuWidgetInstance->AddToViewport();
+			}
+		}
 	}
 }

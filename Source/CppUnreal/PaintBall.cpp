@@ -16,11 +16,10 @@ APaintBall::APaintBall()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("StaticMesh'/Game/StarterContent/Shapes/Shape_Sphere'"));
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PaintBall_SM"));
 
-	if (CubeMesh.Succeeded())
-	{
-		StaticMesh->SetStaticMesh(CubeMesh.Object);
-	}
+	if (!CubeMesh.Succeeded() || !StaticMesh)
+		return;
 
+	StaticMesh->SetStaticMesh(CubeMesh.Object);
 	StaticMesh->SetWorldScale3D(FVector(0.25f, 0.25f, 0.25f));
 	StaticMesh->SetSimulatePhysics(true);
 	StaticMesh->OnComponentHit.AddDynamic(this, &APaintBall::OnHit);
