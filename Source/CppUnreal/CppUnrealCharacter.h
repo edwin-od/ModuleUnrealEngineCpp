@@ -91,7 +91,7 @@ public:
 	float GrabDistance = 5000.0f;
 
 	UPROPERTY(EditAnywhere)
-	float IdleAnimationTimout = 10.0f;
+	float IdleAnimationTimout = 5.0f;
 
 	UPROPERTY(BlueprintReadOnly)
 	bool bIdleAnimationTimedOut;
@@ -173,6 +173,14 @@ public:
 
 	UFUNCTION()
 	void PauseGame();
+
+	UFUNCTION(BlueprintCallable)
+	bool SaveGame(int32 SlotIndex, FString SlotName);
+
+	UFUNCTION(BlueprintCallable)
+	bool LoadGame(int32 SlotIndex, FString SlotName);
+
+
 
 };
 

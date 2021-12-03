@@ -14,6 +14,9 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "Blueprint/UserWidget.h"
+#include "SaveGameCpp.h"
+#include "GameInstanceCpp.h"
+#include "Kismet/GameplayStatics.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ACppUnrealCharacter
@@ -82,6 +85,11 @@ void ACppUnrealCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Load Saved Game
+	UGameInstanceCpp* GameInstance = Cast<UGameInstanceCpp>(GetGameInstance());
+	if (GameInstance && GameInstance->SaveSlotIndex != -1 && GameInstance->SaveSlotName != "")
+		LoadGame(GameInstance->SaveSlotIndex, GameInstance->SaveSlotName);
+
 	BodyInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(0), GetMesh(), "Body_Instance_MAT");
 	GetMesh()->SetMaterial(0, BodyInstanceMaterial);
 
@@ -96,6 +104,8 @@ void ACppUnrealCharacter::BeginPlay()
 		GetMesh()->SetMaterial(0, SpawnEffectInstanceMaterial);
 		GetMesh()->SetMaterial(1, SpawnEffectInstanceMaterial);
 	}
+
+	GetWorldTimerManager().SetTimer(IdleAnimationTimerHandle, this, &ACppUnrealCharacter::IdleAnimationTimedOut, IdleAnimationTimout, false);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -316,6 +326,7 @@ void ACppUnrealCharacter::CrouchAction()
 void ACppUnrealCharacter::AnyKeyPressed()
 {
 	bIdleAnimationTimedOut = false;
+	GetWorldTimerManager().ClearTimer(IdleAnimationTimerHandle);
 }
 
 void ACppUnrealCharacter::AnyKeyReleased()
@@ -349,4 +360,33 @@ void ACppUnrealCharacter::PauseGame()
 			}
 		}
 	}
+}
+
+bool ACppUnrealCharacter::SaveGame(int32 SlotIndex, FString SlotName)
+{
+	USaveGameCpp* SaveGameInstance = Cast<USaveGameCpp>(UGameplayStatics::CreateSaveGameObject(USaveGameCpp::StaticClass()));
+	if (SaveGameInstance)
+	{
+		SaveGameInstance->UserIndex = SlotIndex;
+		SaveGameInstance->SaveSlotName = SlotName;
+		SaveGameInstance->PlayerLocation = GetActorLocation() + FVector(0, 0, 5);
+		SaveGameInstance->PlayerHP = HP;
+
+		if (UGameplayStatics::SaveGameToSlot(SaveGameInstance, SaveGameInstance->SaveSlotName, SaveGameInstance->UserIndex))
+			return true;
+	}
+	return false;
+}
+
+bool ACppUnrealCharacter::LoadGame(int32 SlotIndex, FString SlotName)
+{
+	USaveGameCpp* SaveGameInstance = Cast<USaveGameCpp>(UGameplayStatics::LoadGameFromSlot(SlotName, SlotIndex));
+	if (SaveGameInstance)
+	{
+		SetActorLocation(SaveGameInstance->PlayerLocation);
+		HP = SaveGameInstance->PlayerHP;
+
+		return true;
+	}
+	return false;
 }
