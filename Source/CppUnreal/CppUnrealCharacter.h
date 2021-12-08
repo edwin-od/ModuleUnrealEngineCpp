@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ItemsTableStruct.h"
+
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "CppUnrealCharacter.generated.h"
@@ -94,10 +96,16 @@ public:
 	float IdleAnimationTimout = 5.0f;
 
 	UPROPERTY(BlueprintReadOnly)
+	TArray<FItemsTableStruct> Inventory;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	bool bIdleAnimationTimedOut;
 
 	UPROPERTY()
 	TSubclassOf<UUserWidget> PauseMenuWidget;
+
+	UPROPERTY()
+	TSubclassOf<UUserWidget> InventoryMenuWidget;
 
 	UPROPERTY()
 	FTimerHandle IdleAnimationTimerHandle;
@@ -174,13 +182,20 @@ public:
 	UFUNCTION()
 	void PauseGame();
 
+	UFUNCTION()
+	void OpenInventory();
+
 	UFUNCTION(BlueprintCallable)
 	bool SaveGame(int32 SlotIndex, FString SlotName);
 
 	UFUNCTION(BlueprintCallable)
 	bool LoadGame(int32 SlotIndex, FString SlotName);
 
+	UFUNCTION()
+	void PickupItem(struct FItemsTableStruct Item);
 
+	UFUNCTION()
+	void DropItem(int32 Index);
 
 };
 

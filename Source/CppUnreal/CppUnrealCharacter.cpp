@@ -76,8 +76,11 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/SpawnEffect'"));
 	SpawnEffectMaterial = Material.Succeeded() ? Material.Object : nullptr;
 
-	static ConstructorHelpers::FClassFinder<UUserWidget> Widget(TEXT("WidgetBlueprint'/Game/ThirdPersonCPP/UI/PauseMenu'"));
-	PauseMenuWidget = Widget.Succeeded() ? Widget.Class : nullptr;
+	static ConstructorHelpers::FClassFinder<UUserWidget> PauseWidget(TEXT("WidgetBlueprint'/Game/ThirdPersonCPP/UI/PauseMenu'"));
+	PauseMenuWidget = PauseWidget.Succeeded() ? PauseWidget.Class : nullptr;
+
+	static ConstructorHelpers::FClassFinder<UUserWidget> InventoryWidget(TEXT("WidgetBlueprint'/Game/ThirdPersonCPP/UI/InventoryMenu'"));
+	InventoryMenuWidget = InventoryWidget.Succeeded() ? InventoryWidget.Class : nullptr;
 }
 
 // Called when the game starts or when spawned
@@ -106,6 +109,8 @@ void ACppUnrealCharacter::BeginPlay()
 	}
 
 	GetWorldTimerManager().SetTimer(IdleAnimationTimerHandle, this, &ACppUnrealCharacter::IdleAnimationTimedOut, IdleAnimationTimout, false);
+
+	Inventory.Init(FItemsTableStruct(), 4);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -142,6 +147,7 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Any", IE_Pressed, this, &ACppUnrealCharacter::AnyKeyPressed);
 	PlayerInputComponent->BindAction("Any", IE_Released, this, &ACppUnrealCharacter::AnyKeyReleased);
 	PlayerInputComponent->BindAction("Pause", IE_Pressed, this, &ACppUnrealCharacter::PauseGame);
+	PlayerInputComponent->BindAction("Inventory", IE_Pressed, this, &ACppUnrealCharacter::OpenInventory);
 }
 
 
@@ -389,4 +395,42 @@ bool ACppUnrealCharacter::LoadGame(int32 SlotIndex, FString SlotName)
 		return true;
 	}
 	return false;
+}
+
+void ACppUnrealCharacter::OpenInventory()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		bool bIsPaused = PlayerController->SetPause(true);
+
+		if (bIsPaused)
+		{
+			PlayerController->bShowMouseCursor = true;
+			PlayerController->bEnableClickEvents = true;
+			PlayerController->bEnableMouseOverEvents = true;
+
+			if (InventoryMenuWidget)
+			{
+				UUserWidget* InventoryMenuWidgetInstance = CreateWidget<UUserWidget>(GetGameInstance(), InventoryMenuWidget);
+				InventoryMenuWidgetInstance->AddToViewport();
+			}
+		}
+	}
+}
+
+void ACppUnrealCharacter::PickupItem(FItemsTableStruct Item)
+{
+	if (Inventory[3].ItemName != FName(TEXT("NONE")))
+	{
+		
+	}
+}
+
+void ACppUnrealCharacter::DropItem(int32 Index)
+{
+	if (Inventory[Index].ItemName != FName(TEXT("NONE")))
+	{
+		
+	}
 }
