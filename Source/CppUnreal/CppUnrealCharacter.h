@@ -146,6 +146,9 @@ public:
 	UPROPERTY()
 	int HP;
 
+	UPROPERTY()
+	int32 EquipedItem;
+
 	UFUNCTION()
 	void PRINT(FString str);
 
@@ -194,8 +197,19 @@ public:
 	UFUNCTION()
 	void PickupItem(struct FItemsTableStruct Item);
 
-	UFUNCTION()
-	void DropItem(int32 Index);
+	UFUNCTION(BlueprintCallable)
+	bool DropItem(int32 Index);
+
+	UFUNCTION(BlueprintCallable)
+	void EquipItem(int32 Index);
+
+	DECLARE_DELEGATE_OneParam(EquipItemDelegate, int32);
+
+	UFUNCTION(BlueprintCallable)
+	void UnequipItem();
+
+	UFUNCTION(BlueprintCallable)
+	struct FItemsTableStruct GetItem(int32 Index);
 
 };
 

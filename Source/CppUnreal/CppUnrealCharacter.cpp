@@ -69,6 +69,7 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 
 	HP = MaxHP;
+	EquipedItem = -1;
 	bIsDead = false;
 	ItemGrabbed = nullptr;
 	bIdleAnimationTimedOut = false;
@@ -148,6 +149,10 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Any", IE_Released, this, &ACppUnrealCharacter::AnyKeyReleased);
 	PlayerInputComponent->BindAction("Pause", IE_Pressed, this, &ACppUnrealCharacter::PauseGame);
 	PlayerInputComponent->BindAction("Inventory", IE_Pressed, this, &ACppUnrealCharacter::OpenInventory);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip1", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 1);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip2", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 2);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip3", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 3);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip4", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 4);
 }
 
 
@@ -421,16 +426,72 @@ void ACppUnrealCharacter::OpenInventory()
 
 void ACppUnrealCharacter::PickupItem(FItemsTableStruct Item)
 {
-	if (Inventory[3].ItemName != FName(TEXT("NONE")))
+	if (Inventory[3].ItemName != FName(TEXT("NONE")))	// Not full inventory
 	{
-		
+		for (int i = 3; i > 0; i--)
+		{
+			if (Inventory[i - 1].ItemName == FName(TEXT("NONE")))
+				continue;
+			Inventory[i] = Item;
+		}
 	}
 }
 
-void ACppUnrealCharacter::DropItem(int32 Index)
+bool ACppUnrealCharacter::DropItem(int32 Index)
 {
+	if (Index > 3 || Index < 0)
+		return false;
+
 	if (Inventory[Index].ItemName != FName(TEXT("NONE")))
 	{
-		
+		FItemsTableStruct Item = Inventory[Index];
+		for (int i = Index; i < 3; i++)
+		{
+			Inventory[i] = Inventory[i + 1];
+
+			if (Inventory[i + 1].ItemName == FName(TEXT("NONE")))
+				break;
+		}
+		if (Inventory[3].ItemName != FName(TEXT("NONE")))
+			Inventory[3] = FItemsTableStruct();
+
+		// Spawn Item dropped
+
+		return true;
 	}
+
+	return false;
+}
+
+void ACppUnrealCharacter::EquipItem(int32 Index)
+{
+	if (Index > 3 || Index < 0)
+		return;
+
+	if (Inventory[Index].ItemName != FName(TEXT("NONE")))
+	{
+		if (EquipedItem == Index)
+		{
+			UnequipItem();
+			return;
+		}
+		EquipedItem = Index;
+
+		// Add to hand, or use if volatile, or nothing if un-usable (diamond, emerald, etc.)
+	}
+}
+
+void ACppUnrealCharacter::UnequipItem()
+{
+	EquipedItem = -1;
+
+	// Remove from hand
+}
+
+FItemsTableStruct ACppUnrealCharacter::GetItem(int32 Index)
+{
+	if (Index > 3 || Index < 0)
+		return FItemsTableStruct();
+
+	return Inventory[Index];
 }
