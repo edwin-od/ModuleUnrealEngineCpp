@@ -2,8 +2,8 @@
 
 
 #include "Lava.h"
-//#include "GameFramework/Character.h"
 #include "CppUnrealCharacter.h"
+#include "CppAICharacter.h"
 
 // Sets default values
 ALava::ALava()
@@ -34,9 +34,12 @@ void ALava::BeginPlay()
 void ALava::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	ACppUnrealCharacter* Character = Cast<ACppUnrealCharacter>(OtherActor);
+	ACppAICharacter* AICharacter = Cast<ACppAICharacter>(OtherActor);
 
-	if (!Character)
-		return;
+	if (Character)
+		Character->SetHP(Character->MinHP);
+	else if (AICharacter)
+		AICharacter->SetHP(AICharacter->MinHP);
 
-	Character->SetHP(Character->MinHP);
+	
 }

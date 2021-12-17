@@ -17,6 +17,11 @@
 #include "SaveGameCpp.h"
 #include "GameInstanceCpp.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/DataTable.h"
+#include "ItemsListing.h"
+#include "Item.h"
+#include "CppAICharacter.h"
+#include "Components/BoxComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ACppUnrealCharacter
@@ -64,15 +69,43 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	GrabLocation->SetRelativeLocation(FVector(150.0f, 0.0f, 0.0f));
 	GrabLocation->SetupAttachment(RootComponent);
 
+	PrimaryItemTriggerBox = CreateDefaultSubobject<UBoxComponent>(TEXT("AttackTriggerBoxComponent"));
+	PrimaryItemTriggerBox->SetBoxExtent(FVector(32.0f, 32.0f, 32.0f));
+	PrimaryItemTriggerBox->SetCollisionProfileName("Trigger");
+	PrimaryItemTriggerBox->OnComponentBeginOverlap.AddDynamic(this, &ACppUnrealCharacter::WeaponBeginOverlap);
+	PrimaryItemTriggerBox->OnComponentEndOverlap.AddDynamic(this, &ACppUnrealCharacter::WeaponEndOverlap);
+	PrimaryItemTriggerBox->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "PrimaryWeapon");
+
+	PrimaryItemStaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Primary_Weapon_SM"));
+	PrimaryItemStaticMeshComponent->SetSimulatePhysics(false);
+	PrimaryItemStaticMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
+	PrimaryItemStaticMeshComponent->SetGenerateOverlapEvents(true);
+	PrimaryItemStaticMeshComponent->SetupAttachment(PrimaryItemTriggerBox);
+
+	GetMesh()->SetRenderCustomDepth(false);
+	GetMesh()->SetCustomDepthStencilValue(0);
+	PrimaryItemStaticMeshComponent->SetRenderCustomDepth(false);
+	PrimaryItemStaticMeshComponent->SetCustomDepthStencilValue(0);
+
+	SecondaryItemStaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Secondary_Weapon_SM"));
+	SecondaryItemStaticMeshComponent->SetSimulatePhysics(false);
+	SecondaryItemStaticMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	SecondaryItemStaticMeshComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "SecondaryWeapon");
+
 	PhysicsHandle = CreateDefaultSubobject<UPhysicsHandleComponent>(TEXT("PhysicsHandle"));
 
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 
 	HP = MaxHP;
-	EquipedItem = -1;
+	Coins = 0;
 	bIsDead = false;
 	ItemGrabbed = nullptr;
 	bIdleAnimationTimedOut = false;
+	EquippedLeftHand = -1;
+	EquippedRightHand = -1;
+	bIsBlocking = false;
+	bIsArmored = false;
+	DamageBoost = 0.0f;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/SpawnEffect'"));
 	SpawnEffectMaterial = Material.Succeeded() ? Material.Object : nullptr;
@@ -109,9 +142,12 @@ void ACppUnrealCharacter::BeginPlay()
 		GetMesh()->SetMaterial(1, SpawnEffectInstanceMaterial);
 	}
 
+	bIdleAnimationTimedOut = false;
+	GetWorldTimerManager().ClearTimer(IdleAnimationTimerHandle);
 	GetWorldTimerManager().SetTimer(IdleAnimationTimerHandle, this, &ACppUnrealCharacter::IdleAnimationTimedOut, IdleAnimationTimout, false);
 
 	Inventory.Init(FItemsTableStruct(), 4);
+	InventoryInstances.Init(nullptr, 4);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -121,6 +157,7 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 {
 	// Set up gameplay key bindings
 	check(PlayerInputComponent);
+
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
@@ -147,12 +184,12 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &ACppUnrealCharacter::CrouchAction);
 	PlayerInputComponent->BindAction("Any", IE_Pressed, this, &ACppUnrealCharacter::AnyKeyPressed);
 	PlayerInputComponent->BindAction("Any", IE_Released, this, &ACppUnrealCharacter::AnyKeyReleased);
-	PlayerInputComponent->BindAction("Pause", IE_Pressed, this, &ACppUnrealCharacter::PauseGame);
-	PlayerInputComponent->BindAction("Inventory", IE_Pressed, this, &ACppUnrealCharacter::OpenInventory);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip1", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 1);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip2", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 2);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip3", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 3);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip4", IE_Pressed, this, &ACppUnrealCharacter::EquipItem, 4);
+	PlayerInputComponent->BindAction("Pause", IE_Released, this, &ACppUnrealCharacter::PauseGame);
+	PlayerInputComponent->BindAction("Inventory", IE_Released, this, &ACppUnrealCharacter::OpenInventory);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip1", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 1);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip2", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 2);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip3", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 3);
+	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip4", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 4);
 }
 
 
@@ -222,7 +259,7 @@ void ACppUnrealCharacter::MoveRight(float Value)
 void ACppUnrealCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 	if (GetMesh()->GetMaterial(0) == SpawnEffectInstanceMaterial)
 	{
 		float time = 0;
@@ -263,7 +300,7 @@ void ACppUnrealCharacter::SetHP(int Value)
 		if (HP == MinHP)
 			Die();
 
-		PRINT("HP " + FString::FromInt(HP));
+		PRINT("HP : " + FString::FromInt(HP));
 	}
 }
 
@@ -278,6 +315,22 @@ void ACppUnrealCharacter::Die()
 	GetCharacterMovement()->DisableMovement();
 
 	GetWorldTimerManager().SetTimer(RespawnTimerHandle, this, &ACppUnrealCharacter::Respawn, RespawnDelay, false);
+	GetMesh()->SetGenerateOverlapEvents(false);
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (Inventory[i].ItemEnumListing == EItemsListing::None)
+			break;
+		RemoveItemFromInventory(i);
+		Inventory[i] = FItemsTableStruct();
+		InventoryInstances[i] = nullptr;
+	}
+
+	PrimaryItemStaticMeshComponent->SetStaticMesh(nullptr);
+	EquippedRightHand = -1;
+
+	SecondaryItemStaticMeshComponent->SetStaticMesh(nullptr);
+	EquippedLeftHand = -1;
 
 	bIsDead = true;
 }
@@ -353,21 +406,24 @@ void ACppUnrealCharacter::IdleAnimationTimedOut()
 
 void ACppUnrealCharacter::PauseGame()
 {
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	if (PlayerController)
+	if (!bIsDead)
 	{
-		bool bIsPaused = PlayerController->SetPause(true);
-
-		if (bIsPaused)
+		APlayerController* PlayerController = Cast<APlayerController>(GetController());
+		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = true;
-			PlayerController->bEnableClickEvents = true;
-			PlayerController->bEnableMouseOverEvents = true;
+			bool bIsPaused = PlayerController->SetPause(true);
 
-			if (PauseMenuWidget)
+			if (bIsPaused)
 			{
-				UUserWidget* PauseMenuWidgetInstance = CreateWidget<UUserWidget>(GetGameInstance(), PauseMenuWidget);
-				PauseMenuWidgetInstance->AddToViewport();
+				PlayerController->bShowMouseCursor = true;
+				PlayerController->bEnableClickEvents = true;
+				PlayerController->bEnableMouseOverEvents = true;
+
+				if (PauseMenuWidget)
+				{
+					UUserWidget* PauseMenuWidgetInstance = CreateWidget<UUserWidget>(GetGameInstance(), PauseMenuWidget);
+					PauseMenuWidgetInstance->AddToViewport();
+				}
 			}
 		}
 	}
@@ -404,37 +460,78 @@ bool ACppUnrealCharacter::LoadGame(int32 SlotIndex, FString SlotName)
 
 void ACppUnrealCharacter::OpenInventory()
 {
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	if (PlayerController)
+	if (!bIsDead)
 	{
-		bool bIsPaused = PlayerController->SetPause(true);
-
-		if (bIsPaused)
+		APlayerController* PlayerController = Cast<APlayerController>(GetController());
+		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = true;
-			PlayerController->bEnableClickEvents = true;
-			PlayerController->bEnableMouseOverEvents = true;
+			bool bIsPaused = PlayerController->SetPause(true);
 
-			if (InventoryMenuWidget)
+			if (bIsPaused)
 			{
-				UUserWidget* InventoryMenuWidgetInstance = CreateWidget<UUserWidget>(GetGameInstance(), InventoryMenuWidget);
-				InventoryMenuWidgetInstance->AddToViewport();
+				PlayerController->bShowMouseCursor = true;
+				PlayerController->bEnableClickEvents = true;
+				PlayerController->bEnableMouseOverEvents = true;
+
+				if (InventoryMenuWidget)
+				{
+					UUserWidget* InventoryMenuWidgetInstance = CreateWidget<UUserWidget>(GetGameInstance(), InventoryMenuWidget);
+					InventoryMenuWidgetInstance->AddToViewport();
+				}
 			}
 		}
 	}
 }
 
-void ACppUnrealCharacter::PickupItem(FItemsTableStruct Item)
+bool ACppUnrealCharacter::PickupItem(FItemsTableStruct Item, AItem* ItemInstance)
 {
-	if (Inventory[3].ItemName != FName(TEXT("NONE")))	// Not full inventory
+	if (Item.ItemEnumListing == EItemsListing::None)
+		return false;
+
+	if (Item.CanBeStored)
 	{
-		for (int i = 3; i > 0; i--)
+		if (Inventory[3].ItemEnumListing == EItemsListing::None)	// Not full inventory
 		{
-			if (Inventory[i - 1].ItemName == FName(TEXT("NONE")))
-				continue;
-			Inventory[i] = Item;
+			for (int i = 3; i > 0; i--)
+			{
+				if (Inventory[i - 1].ItemEnumListing == EItemsListing::None)
+					continue;
+				AddItemToInventory(i, Item, ItemInstance);
+				if (!Item.IsVolatile)
+					EquipItem(i);
+				return true;
+			}
+			AddItemToInventory(0, Item, ItemInstance);
+			if (!Item.IsVolatile)
+				EquipItem(0);
+			return true;
+		}
+		else
+			PRINT("Inventory Full !");
+	}
+	else
+	{
+		switch (Item.ItemEnumListing)
+		{
+		case EItemsListing::Coin:
+			AddCoins(Item.ItemValue);
+			return true;
+		default:
+			break;
 		}
 	}
+
+	return false;
+}
+
+void ACppUnrealCharacter::AddItemToInventory(int32 Index, FItemsTableStruct Item, class AItem* ItemInstance)
+{
+	Inventory[Index] = Item;
+	InventoryInstances[Index] = ItemInstance;
+
+	ItemInstance->SetActorHiddenInGame(true);
+	ItemInstance->SetActorTickEnabled(false);
+	ItemInstance->SetActorEnableCollision(false);
 }
 
 bool ACppUnrealCharacter::DropItem(int32 Index)
@@ -442,50 +539,168 @@ bool ACppUnrealCharacter::DropItem(int32 Index)
 	if (Index > 3 || Index < 0)
 		return false;
 
-	if (Inventory[Index].ItemName != FName(TEXT("NONE")))
+	if (Inventory[Index].ItemEnumListing != EItemsListing::None)
 	{
-		FItemsTableStruct Item = Inventory[Index];
+		RemoveItemFromInventory(Index);
+		if (EquippedLeftHand == Index || EquippedRightHand == Index)
+			UnequipItem(Index);
 		for (int i = Index; i < 3; i++)
 		{
-			Inventory[i] = Inventory[i + 1];
+			if (Inventory[i + 1].ItemEnumListing != EItemsListing::None)
+			{
+				if (EquippedLeftHand == i + 1)
+					EquippedLeftHand = i;
+				else if (EquippedRightHand == i + 1)
+					EquippedRightHand = i;
+			}
 
-			if (Inventory[i + 1].ItemName == FName(TEXT("NONE")))
+			Inventory[i] = Inventory[i + 1];
+			InventoryInstances[i] = InventoryInstances[i + 1];
+
+			if (Inventory[i + 1].ItemEnumListing == EItemsListing::None)
 				break;
 		}
-		if (Inventory[3].ItemName != FName(TEXT("NONE")))
+		if (Inventory[3].ItemEnumListing != EItemsListing::None)
+		{
 			Inventory[3] = FItemsTableStruct();
-
-		// Spawn Item dropped
-
+			InventoryInstances[3] = nullptr;
+		}
 		return true;
 	}
 
 	return false;
 }
 
-void ACppUnrealCharacter::EquipItem(int32 Index)
+bool ACppUnrealCharacter::DropItemVolatile(int32 Index)
 {
 	if (Index > 3 || Index < 0)
-		return;
+		return false;
 
-	if (Inventory[Index].ItemName != FName(TEXT("NONE")))
+	if (Inventory[Index].ItemEnumListing != EItemsListing::None)
 	{
-		if (EquipedItem == Index)
+		if (InventoryInstances[Index])
 		{
-			UnequipItem();
-			return;
+			InventoryInstances[Index]->Destroy();
+			InventoryInstances[Index] = nullptr;
 		}
-		EquipedItem = Index;
+		for (int i = Index; i < 3; i++)
+		{
+			if (Inventory[i + 1].ItemEnumListing != EItemsListing::None)
+			{
+				if (EquippedLeftHand == i + 1)
+					EquippedLeftHand = i;
+				else if (EquippedRightHand == i + 1)
+					EquippedRightHand = i;
+			}
 
-		// Add to hand, or use if volatile, or nothing if un-usable (diamond, emerald, etc.)
+			Inventory[i] = Inventory[i + 1];
+			InventoryInstances[i] = InventoryInstances[i + 1];
+
+			if (Inventory[i + 1].ItemEnumListing == EItemsListing::None)
+				break;
+		}
+		if (Inventory[3].ItemEnumListing != EItemsListing::None)
+		{
+			Inventory[3] = FItemsTableStruct();
+			InventoryInstances[3] = nullptr;
+		}
+		return true;
 	}
+
+	return false;
 }
 
-void ACppUnrealCharacter::UnequipItem()
+void ACppUnrealCharacter::RemoveItemFromInventory(int32 Index)
 {
-	EquipedItem = -1;
+	InventoryInstances[Index]->SetActorHiddenInGame(false);
+	InventoryInstances[Index]->SetActorTickEnabled(true);
+	InventoryInstances[Index]->SetActorEnableCollision(true);
+	InventoryInstances[Index]->SetActorLocation(GrabLocation->GetComponentLocation());
+}
 
-	// Remove from hand
+void ACppUnrealCharacter::BindEquipItem(int32 Index)
+{
+	EquipItem(Index);
+}
+
+bool ACppUnrealCharacter::EquipItem(int32 Index)
+{
+	FItemsTableStruct Item = GetItem(Index);
+	if (Item.ItemEnumListing == EItemsListing::None)
+		return false;
+
+	switch (Item.ItemEnumListing)
+	{
+	case EItemsListing::Sword:
+	{
+		if (EquippedRightHand != -1)
+			UnequipItem(EquippedRightHand);
+		EquippedRightHand = Index;
+		UStaticMeshComponent* ItemSM = InventoryInstances[Index]->FindComponentByClass<UStaticMeshComponent>();
+		PrimaryItemStaticMeshComponent->SetStaticMesh(ItemSM->GetStaticMesh());
+		PrimaryItemStaticMeshComponent->SetRelativeLocation(FVector(-3.0f, 5.0f, -10.0f));
+		PrimaryItemStaticMeshComponent->SetRelativeRotation(FRotator(0.0f, 0.0f, 90.0f));
+		PrimaryItemStaticMeshComponent->SetRelativeScale3D(FVector(1.6f, 1.75f, 2.0f));
+		return true;
+	}
+	case EItemsListing::Shield:
+	{
+		if (EquippedLeftHand != -1)
+			UnequipItem(EquippedLeftHand);
+		EquippedLeftHand = Index;
+		UStaticMeshComponent* ItemSM = InventoryInstances[Index]->FindComponentByClass<UStaticMeshComponent>();
+		SecondaryItemStaticMeshComponent->SetStaticMesh(ItemSM->GetStaticMesh());
+		SecondaryItemStaticMeshComponent->SetRelativeLocation(FVector(8.0f, 11.0f, -33.0f));
+		SecondaryItemStaticMeshComponent->SetRelativeRotation(FRotator(-23.0f, -150.2f, 12.5f));
+		SecondaryItemStaticMeshComponent->SetRelativeScale3D(FVector(2.5f, 2.5f, 2.5f));
+		return true;
+	}
+	case EItemsListing::Map:
+		// open map
+
+		return true;
+	case EItemsListing::HealthPotion:
+		ChangeHP(Item.ItemValue);
+		DropItemVolatile(Index);
+		return true;
+	case EItemsListing::ArmorPotion:
+		ResetArmorPotionTimer();
+		bIsArmored = true;
+		GetMesh()->SetCustomDepthStencilValue(1);
+		GetMesh()->SetRenderCustomDepth(true);
+		DropItemVolatile(Index);
+		GetWorldTimerManager().SetTimer(ArmorPotionTimerHandle, this, &ACppUnrealCharacter::ResetArmorPotionTimer, Item.ItemDuration, false);
+		return true;
+	case EItemsListing::DamagePotion:
+		ResetDamagePotionTimer();
+		DamageBoost = Item.ItemValue;
+		PrimaryItemStaticMeshComponent->SetCustomDepthStencilValue(2);
+		PrimaryItemStaticMeshComponent->SetRenderCustomDepth(true);
+		DropItemVolatile(Index);
+		GetWorldTimerManager().SetTimer(DamagePotionTimerHandle, this, &ACppUnrealCharacter::ResetDamagePotionTimer, Item.ItemDuration, false);
+		return true;
+	default:
+		break;
+	}
+
+	return false;
+}
+
+void ACppUnrealCharacter::UnequipItem(int32 Index)
+{
+	FItemsTableStruct Item = GetItem(Index);
+	if (Item.ItemEnumListing == EItemsListing::None)
+		return;
+	if (EquippedRightHand == Index)
+	{
+		PrimaryItemStaticMeshComponent->SetStaticMesh(nullptr);
+		EquippedRightHand = -1;
+	}
+	else if (EquippedLeftHand == Index)
+	{
+		SecondaryItemStaticMeshComponent->SetStaticMesh(nullptr);
+		EquippedLeftHand = -1;
+	}
 }
 
 FItemsTableStruct ACppUnrealCharacter::GetItem(int32 Index)
@@ -494,4 +709,74 @@ FItemsTableStruct ACppUnrealCharacter::GetItem(int32 Index)
 		return FItemsTableStruct();
 
 	return Inventory[Index];
+}
+
+void ACppUnrealCharacter::AddCoins(int32 Amount)
+{
+	Coins += Amount;
+	if (Coins < 0)
+		Coins = 0;
+
+	PRINT("Coins : " + FString::FromInt(Coins));
+}
+
+int32 ACppUnrealCharacter::GetCoins()
+{
+	return Coins;
+}
+
+void ACppUnrealCharacter::WeaponBeginOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	ACppAICharacter* AIEnemy = Cast<ACppAICharacter>(OtherActor);
+
+	if (!AIEnemy)
+		return;
+
+	EnemyWeaponOverlapActor = AIEnemy;
+}
+
+void ACppUnrealCharacter::Attack(ACppAICharacter* Enemy)
+{
+	if(Enemy)
+		Enemy->ChangeHP(-FMath::Abs(GetItem(EquippedRightHand).ItemValue + DamageBoost));
+}
+
+void ACppUnrealCharacter::WeaponEndOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	ACppAICharacter* AIEnemy = Cast<ACppAICharacter>(OtherActor);
+
+	if (!AIEnemy)
+		return;
+
+	EnemyWeaponOverlapActor = nullptr;
+}
+
+void ACppUnrealCharacter::ApplyDamage(int32 Amount, FVector Direction)
+{
+	if (bIsArmored)
+		return;
+	if (bIsBlocking) // updated in BP
+	{
+		float Angle = 180.0f - FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(GetActorForwardVector(), Direction) / (GetActorForwardVector().Size() * Direction.Size()))));
+		if (Angle < 75.0f)
+			return;
+	}
+
+	ChangeHP(Amount);
+}
+
+void ACppUnrealCharacter::ResetArmorPotionTimer()
+{
+	bIsArmored = false;
+	GetMesh()->SetRenderCustomDepth(false);
+	GetMesh()->SetCustomDepthStencilValue(0);
+	GetWorldTimerManager().ClearTimer(ArmorPotionTimerHandle);
+}
+
+void ACppUnrealCharacter::ResetDamagePotionTimer()
+{
+	DamageBoost = 0.0f;
+	PrimaryItemStaticMeshComponent->SetRenderCustomDepth(false);
+	PrimaryItemStaticMeshComponent->SetCustomDepthStencilValue(0);
+	GetWorldTimerManager().ClearTimer(DamagePotionTimerHandle);
 }

@@ -62,10 +62,10 @@ protected:
 
 protected:
 	// APawn interface
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interface
 
 	// Called when the game starts or when spawned
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void BeginPlay() override;
 
 public:
@@ -76,6 +76,15 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* PrimaryItemStaticMeshComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	class UBoxComponent* PrimaryItemTriggerBox;
+
+	UPROPERTY(EditAnywhere)
+	UStaticMeshComponent* SecondaryItemStaticMeshComponent;
 
 	UPROPERTY(EditAnywhere)
 	int MinHP = 0;
@@ -95,8 +104,14 @@ public:
 	UPROPERTY(EditAnywhere)
 	float IdleAnimationTimout = 5.0f;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<FItemsTableStruct> Inventory;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TArray<class AItem*> InventoryInstances;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 Coins;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	bool bIdleAnimationTimedOut;
@@ -143,11 +158,32 @@ public:
 	UPROPERTY()
 	FTimerHandle RespawnTimerHandle;
 
+	UPROPERTY(EditAnywhere)
+	class UDataTable* ItemDataTable;
+
+	UPROPERTY()
+	FTimerHandle ArmorPotionTimerHandle;
+
+	UPROPERTY()
+	bool bIsArmored;
+
+	UPROPERTY()
+	FTimerHandle DamagePotionTimerHandle;
+
+	UPROPERTY()
+	float DamageBoost;
+
 	UPROPERTY()
 	int HP;
 
-	UPROPERTY()
-	int32 EquipedItem;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	bool bIsBlocking;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 EquippedLeftHand;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 EquippedRightHand;
 
 	UFUNCTION()
 	void PRINT(FString str);
@@ -195,21 +231,60 @@ public:
 	bool LoadGame(int32 SlotIndex, FString SlotName);
 
 	UFUNCTION()
-	void PickupItem(struct FItemsTableStruct Item);
+	bool PickupItem(FItemsTableStruct Item, class AItem* ItemInstance);
+
+	UFUNCTION()
+	void AddItemToInventory(int32 Index, FItemsTableStruct Item, class AItem* ItemInstance);
 
 	UFUNCTION(BlueprintCallable)
 	bool DropItem(int32 Index);
 
+	UFUNCTION()
+	bool DropItemVolatile(int32 Index);
+
+	UFUNCTION()
+	void RemoveItemFromInventory(int32 Index);
+
 	UFUNCTION(BlueprintCallable)
-	void EquipItem(int32 Index);
+	bool EquipItem(int32 Index);
+
+	UFUNCTION(BlueprintCallable)
+	void BindEquipItem(int32 Index);
 
 	DECLARE_DELEGATE_OneParam(EquipItemDelegate, int32);
 
 	UFUNCTION(BlueprintCallable)
-	void UnequipItem();
+	void UnequipItem(int32 Index);
 
 	UFUNCTION(BlueprintCallable)
-	struct FItemsTableStruct GetItem(int32 Index);
+	FItemsTableStruct GetItem(int32 Index);
+
+	UFUNCTION(BlueprintCallable)
+	void AddCoins(int32 Amount);
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetCoins();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	class ACppAICharacter* EnemyWeaponOverlapActor;
+
+	UFUNCTION(BlueprintCallable)
+	void Attack(class ACppAICharacter* Enemy);
+
+	UFUNCTION()
+	void WeaponBeginOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void WeaponEndOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	UFUNCTION()
+	void ApplyDamage(int32 Amount, FVector Direction);
+
+	UFUNCTION()
+	void ResetArmorPotionTimer();
+
+	UFUNCTION()
+	void ResetDamagePotionTimer();
 
 };
 
