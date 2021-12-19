@@ -117,9 +117,6 @@ private:
 	float DamageBoost;
 
 	UPROPERTY()
-	int HP;
-
-	UPROPERTY()
 	TSubclassOf<UUserWidget> PauseMenuWidget;
 
 	UPROPERTY()
@@ -243,11 +240,14 @@ public:
 	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* SecondaryItemStaticMeshComponent;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int MinHP = 0;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int MaxHP = 100;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int HP;
 
 	UPROPERTY(EditAnywhere)
 	float RespawnDelay = 3.0f;

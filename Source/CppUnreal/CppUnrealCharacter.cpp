@@ -123,26 +123,6 @@ void ACppUnrealCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Load Saved Game
-	UGameInstanceCpp* GameInstance = Cast<UGameInstanceCpp>(GetGameInstance());
-	if (GameInstance && GameInstance->SaveSlotIndex != -1 && GameInstance->SaveSlotName != "")
-		LoadGame(GameInstance->SaveSlotIndex, GameInstance->SaveSlotName);
-
-	BodyInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(0), GetMesh(), "Body_Instance_MAT");
-	GetMesh()->SetMaterial(0, BodyInstanceMaterial);
-
-	HeadInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(1), GetMesh(), "Head_Instance_MAT");
-	GetMesh()->SetMaterial(1, HeadInstanceMaterial);
-
-	if (SpawnEffectMaterial)
-	{
-		SpawnEffectInstanceMaterial = UMaterialInstanceDynamic::Create(SpawnEffectMaterial, GetMesh(), "SpawnEffect_Instance_MAT");
-		SpawnEffectInstanceMaterial->SetScalarParameterValue("Time", 0.0f);
-
-		GetMesh()->SetMaterial(0, SpawnEffectInstanceMaterial);
-		GetMesh()->SetMaterial(1, SpawnEffectInstanceMaterial);
-	}
-
 	bIdleAnimationTimedOut = false;
 	GetWorldTimerManager().ClearTimer(IdleAnimationTimerHandle);
 	GetWorldTimerManager().SetTimer(IdleAnimationTimerHandle, this, &ACppUnrealCharacter::IdleAnimationTimedOut, IdleAnimationTimout, false);
@@ -151,6 +131,32 @@ void ACppUnrealCharacter::BeginPlay()
 	InventoryInstances.Init(nullptr, 4);
 
 	AnimEndDelegate.BindUObject(this, &ACppUnrealCharacter::OnAnimationEnded);
+
+	BodyInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(0), GetMesh(), "Body_Instance_MAT");
+	GetMesh()->SetMaterial(0, BodyInstanceMaterial);
+
+	HeadInstanceMaterial = UMaterialInstanceDynamic::Create(GetMesh()->GetMaterial(1), GetMesh(), "Head_Instance_MAT");
+	GetMesh()->SetMaterial(1, HeadInstanceMaterial);
+
+	// Load Saved Game
+	UGameInstanceCpp* GameInstance = Cast<UGameInstanceCpp>(GetGameInstance());
+	if (GameInstance && GameInstance->SaveSlotIndex != -1 && GameInstance->SaveSlotName != "")
+	{
+		LoadGame(GameInstance->SaveSlotIndex, GameInstance->SaveSlotName);
+		GameInstance->SaveSlotIndex = -1;
+		GameInstance->SaveSlotName = "";
+		return;
+	}
+
+	// Spawn Animation only if new game
+	if (SpawnEffectMaterial)
+	{
+		SpawnEffectInstanceMaterial = UMaterialInstanceDynamic::Create(SpawnEffectMaterial, GetMesh(), "SpawnEffect_Instance_MAT");
+		SpawnEffectInstanceMaterial->SetScalarParameterValue("Time", 0.0f);
+
+		GetMesh()->SetMaterial(0, SpawnEffectInstanceMaterial);
+		GetMesh()->SetMaterial(1, SpawnEffectInstanceMaterial);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -26,9 +26,6 @@ private:
 	UPROPERTY()
 	bool bIsDead;
 
-	UPROPERTY()
-	int32 HP;
-
 
 	UFUNCTION()
 	void PRINT(FString str);
@@ -71,10 +68,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 MaxHP = 100;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 HP;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 Damage = -10;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bIsHit;
 
 
