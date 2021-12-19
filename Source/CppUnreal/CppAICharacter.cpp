@@ -27,8 +27,9 @@ ACppAICharacter::ACppAICharacter()
 	EquippedItemTriggerBox->OnComponentEndOverlap.AddDynamic(this, &ACppAICharacter::WeaponEndOverlap);
 	EquippedItemTriggerBox->SetupAttachment(EquippedItemStaticMeshComponent);
 
-	HP = 100;
+	HP = MaxHP;
 	bIsDead = false;
+	bIsHit = false;
 	EnemyWeaponOverlapActor = nullptr;
 }
 
@@ -36,6 +37,8 @@ ACppAICharacter::ACppAICharacter()
 void ACppAICharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	AnimEndDelegate.BindUObject(this, &ACppAICharacter::OnAnimationEnded);
 	
 }
 
@@ -53,14 +56,19 @@ void ACppAICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 }
 
+void ACppAICharacter::PRINT(FString str)
+{
+	if (GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, str);
+}
+
 void ACppAICharacter::SetHP(int Value)
 {
 	if (!bIsDead)
 	{
 		HP = FMath::Clamp(Value, MinHP, MaxHP);
 
-		if (GEngine)
-			GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, "AI HP : " + FString::FromInt(HP));
+		PRINT("AI HP : " + FString::FromInt(HP));
 
 		if (HP == MinHP)
 			Die();
@@ -104,4 +112,26 @@ void ACppAICharacter::WeaponEndOverlap(UPrimitiveComponent* OverlappedCompo, AAc
 		return;
 
 	EnemyWeaponOverlapActor = nullptr;
+}
+
+void ACppAICharacter::ApplyDamage(int32 Amount, FVector Direction)
+{
+	float Angle = 180.0f - FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(GetActorForwardVector(), Direction) / (GetActorForwardVector().Size() * Direction.Size()))));
+
+	if (HitMontage)
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(HitMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
+		GetMesh()->GetAnimInstance()->Montage_JumpToSection(Angle > 90.0f ? "Back" : "Front", HitMontage);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(AnimEndDelegate);
+
+		bIsHit = true;
+	}
+
+	ChangeHP(Amount);
+}
+
+void ACppAICharacter::OnAnimationEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (Montage == HitMontage)
+		bIsHit = false;
 }

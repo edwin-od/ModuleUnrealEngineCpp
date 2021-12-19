@@ -106,6 +106,7 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	bIsBlocking = false;
 	bIsArmored = false;
 	DamageBoost = 0.0f;
+	bIsAttacking = false;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/SpawnEffect'"));
 	SpawnEffectMaterial = Material.Succeeded() ? Material.Object : nullptr;
@@ -148,6 +149,8 @@ void ACppUnrealCharacter::BeginPlay()
 
 	Inventory.Init(FItemsTableStruct(), 4);
 	InventoryInstances.Init(nullptr, 4);
+
+	AnimEndDelegate.BindUObject(this, &ACppUnrealCharacter::OnAnimationEnded);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -186,10 +189,9 @@ void ACppUnrealCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Any", IE_Released, this, &ACppUnrealCharacter::AnyKeyReleased);
 	PlayerInputComponent->BindAction("Pause", IE_Released, this, &ACppUnrealCharacter::PauseGame);
 	PlayerInputComponent->BindAction("Inventory", IE_Released, this, &ACppUnrealCharacter::OpenInventory);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip1", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 1);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip2", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 2);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip3", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 3);
-	PlayerInputComponent->BindAction<EquipItemDelegate>("Equip4", IE_Pressed, this, &ACppUnrealCharacter::BindEquipItem, 4);
+	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ACppUnrealCharacter::InputAttack);
+	PlayerInputComponent->BindAction("Block", IE_Pressed, this, &ACppUnrealCharacter::InputBlockPressed);
+	PlayerInputComponent->BindAction("Block", IE_Released, this, &ACppUnrealCharacter::InputBlockReleased);
 }
 
 
@@ -738,7 +740,7 @@ void ACppUnrealCharacter::WeaponBeginOverlap(UPrimitiveComponent* OverlappedComp
 void ACppUnrealCharacter::Attack(ACppAICharacter* Enemy)
 {
 	if(Enemy)
-		Enemy->ChangeHP(-FMath::Abs(GetItem(EquippedRightHand).ItemValue + DamageBoost));
+		Enemy->ApplyDamage(-FMath::Abs(GetItem(EquippedRightHand).ItemValue + DamageBoost), GetActorForwardVector());
 }
 
 void ACppUnrealCharacter::WeaponEndOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
@@ -755,11 +757,16 @@ void ACppUnrealCharacter::ApplyDamage(int32 Amount, FVector Direction)
 {
 	if (bIsArmored)
 		return;
-	if (bIsBlocking) // updated in BP
+
+	float Angle = 180.0f - FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(GetActorForwardVector(), Direction) / (GetActorForwardVector().Size() * Direction.Size()))));
+
+	if (bIsBlocking && Angle < 75.0f) // updated in BP
+		return;
+
+	if(HitMontage)
 	{
-		float Angle = 180.0f - FMath::Abs(FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(GetActorForwardVector(), Direction) / (GetActorForwardVector().Size() * Direction.Size()))));
-		if (Angle < 75.0f)
-			return;
+		GetMesh()->GetAnimInstance()->Montage_Play(HitMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
+		GetMesh()->GetAnimInstance()->Montage_JumpToSection(Angle > 90.0f ? "Back" : "Front", HitMontage);
 	}
 
 	ChangeHP(Amount);
@@ -779,4 +786,51 @@ void ACppUnrealCharacter::ResetDamagePotionTimer()
 	PrimaryItemStaticMeshComponent->SetRenderCustomDepth(false);
 	PrimaryItemStaticMeshComponent->SetCustomDepthStencilValue(0);
 	GetWorldTimerManager().ClearTimer(DamagePotionTimerHandle);
+}
+
+void ACppUnrealCharacter::InputBlockPressed()
+{
+	if(EquippedLeftHand != -1 && ShieldBlockMontage)
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(ShieldBlockMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
+		GetMesh()->GetAnimInstance()->Montage_JumpToSection("Start", ShieldBlockMontage);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(AnimEndDelegate);
+
+		bIsBlocking = true;
+	}
+}
+
+void ACppUnrealCharacter::InputBlockReleased()
+{
+	if (EquippedLeftHand != -1 && bIsBlocking)
+	{
+		if(ShieldBlockMontage)
+		{
+			GetMesh()->GetAnimInstance()->Montage_Play(ShieldBlockMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
+			GetMesh()->GetAnimInstance()->Montage_JumpToSection("End", ShieldBlockMontage);
+		}
+
+		bIsBlocking = false;
+	}
+}
+
+
+void ACppUnrealCharacter::InputAttack()
+{
+	if (!bIsAttacking && EquippedRightHand != -1 && SwordSlashMontage)
+	{
+		GetMesh()->GetAnimInstance()->Montage_Play(SwordSlashMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
+		GetMesh()->GetAnimInstance()->Montage_JumpToSection("Start", SwordSlashMontage);
+		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(AnimEndDelegate);
+
+		bIsAttacking = true;
+	}
+}
+
+void ACppUnrealCharacter::OnAnimationEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if(Montage == ShieldBlockMontage && bInterrupted)
+		bIsBlocking = false;
+	else if(Montage == SwordSlashMontage)
+		bIsAttacking = false;
 }

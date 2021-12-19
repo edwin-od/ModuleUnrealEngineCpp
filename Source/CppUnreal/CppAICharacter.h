@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Animation/AnimMontage.h"
+
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "CppAICharacter.generated.h"
@@ -19,6 +21,34 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+private:
+	
+	UPROPERTY()
+	bool bIsDead;
+
+	UPROPERTY()
+	int32 HP;
+
+
+	UFUNCTION()
+	void PRINT(FString str);
+
+	UFUNCTION()
+	void Die();
+
+	UFUNCTION()
+	void WeaponBeginOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void WeaponEndOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	UFUNCTION()
+	void OnAnimationEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	FOnMontageEnded AnimEndDelegate;
+
+
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -27,13 +57,13 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UPROPERTY(EditAnywhere)
+	UAnimMontage* HitMontage;
+
+	UPROPERTY(EditAnywhere)
 	UStaticMeshComponent* EquippedItemStaticMeshComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	class UBoxComponent* EquippedItemTriggerBox;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
-	int32 HP;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 MinHP = 0;
@@ -44,8 +74,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 Damage = -10;
 
-	UPROPERTY()
-	bool bIsDead;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	bool bIsHit;
+
+
 
 	UFUNCTION(BlueprintCallable)
 	void ChangeHP(int ChangeValue);
@@ -53,19 +85,13 @@ public:
 	UFUNCTION()
 	void SetHP(int Value);
 
-	UFUNCTION()
-	void Die();
-
 	UFUNCTION(BlueprintCallable)
 	void Attack(class ACppUnrealCharacter* Enemy);
 
+	UFUNCTION()
+	void ApplyDamage(int32 Amount, FVector Direction);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	class ACppUnrealCharacter* EnemyWeaponOverlapActor;
-
-	UFUNCTION()
-	void WeaponBeginOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void WeaponEndOverlap(UPrimitiveComponent* OverlappedCompo, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 };
