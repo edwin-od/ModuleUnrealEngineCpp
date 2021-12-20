@@ -140,6 +140,9 @@ private:
 	UPROPERTY()
 	bool bIsBlocking;
 
+	UPROPERTY()
+	bool bPressedBlocking;
+
 
 	UFUNCTION()
 	void PRINT(FString str);
@@ -249,6 +252,27 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int HP;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int MinStamina = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int MaxStamina = 100;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float StaminaRegainRate = 15.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float StaminaBlockingLoseRate = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int StaminaAttackLoseAmount = 25;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int StaminaHitLoseAmount = 15;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	float Stamina;
+
 	UPROPERTY(EditAnywhere)
 	float RespawnDelay = 3.0f;
 
@@ -273,6 +297,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	bool bIdleAnimationTimedOut;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	bool bInventoryFullFlag;
+
 
 
 
@@ -296,9 +323,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool EquipItem(int32 Index);
-
-	UFUNCTION(BlueprintCallable)
-	void BindEquipItem(int32 Index);
 
 	UFUNCTION(BlueprintCallable)
 	void UnequipItem(int32 Index);

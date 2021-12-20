@@ -97,6 +97,7 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 
 	HP = MaxHP;
+	Stamina = MaxStamina;
 	Coins = 0;
 	bIsDead = false;
 	ItemGrabbed = nullptr;
@@ -107,6 +108,8 @@ ACppUnrealCharacter::ACppUnrealCharacter()
 	bIsArmored = false;
 	DamageBoost = 0.0f;
 	bIsAttacking = false;
+	bPressedBlocking = false;
+	bInventoryFullFlag = false;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("Material'/Game/ThirdPersonCPP/MISC/SpawnEffect'"));
 	SpawnEffectMaterial = Material.Succeeded() ? Material.Object : nullptr;
@@ -286,6 +289,23 @@ void ACppUnrealCharacter::Tick(float DeltaTime)
 
 	// Tourner avec la camera
 	SetActorRotation(((FVector::CrossProduct(GetFollowCamera()->GetForwardVector(), FVector(0.0f, 0.0f, 1.0f))).Rotation() + FRotator(0.0f, 90.0f, 0.0f)));
+
+	if(bPressedBlocking && !bIsBlocking && !bIsAttacking)
+		InputBlockPressed();
+
+	if(!bIsBlocking && !bIsAttacking && Stamina < MaxStamina)
+	{
+		Stamina += DeltaTime * StaminaRegainRate;
+		Stamina = FMath::Clamp(Stamina, (float)MinStamina, (float)MaxStamina);
+	}
+	else if(bIsBlocking)
+	{
+		Stamina -= DeltaTime * StaminaBlockingLoseRate;
+		Stamina = FMath::Clamp(Stamina, (float)MinStamina, (float)MaxStamina);
+
+		if(Stamina == MinStamina)
+			InputBlockReleased();
+	}
 }
 
 void ACppUnrealCharacter::PRINT(FString str)
@@ -515,7 +535,7 @@ bool ACppUnrealCharacter::PickupItem(FItemsTableStruct Item, AItem* ItemInstance
 			return true;
 		}
 		else
-			PRINT("Inventory Full !");
+			bInventoryFullFlag = true;
 	}
 	else
 	{
@@ -624,11 +644,6 @@ void ACppUnrealCharacter::RemoveItemFromInventory(int32 Index)
 	InventoryInstances[Index]->SetActorTickEnabled(true);
 	InventoryInstances[Index]->SetActorEnableCollision(true);
 	InventoryInstances[Index]->SetActorLocation(GrabLocation->GetComponentLocation());
-}
-
-void ACppUnrealCharacter::BindEquipItem(int32 Index)
-{
-	EquipItem(Index);
 }
 
 bool ACppUnrealCharacter::EquipItem(int32 Index)
@@ -775,6 +790,11 @@ void ACppUnrealCharacter::ApplyDamage(int32 Amount, FVector Direction)
 		GetMesh()->GetAnimInstance()->Montage_JumpToSection(Angle > 90.0f ? "Back" : "Front", HitMontage);
 	}
 
+	bIsBlocking = false;
+
+	Stamina -= StaminaHitLoseAmount;
+	Stamina = FMath::Clamp(Stamina, (float)MinStamina, (float)MaxStamina);
+
 	ChangeHP(Amount);
 }
 
@@ -796,7 +816,7 @@ void ACppUnrealCharacter::ResetDamagePotionTimer()
 
 void ACppUnrealCharacter::InputBlockPressed()
 {
-	if(EquippedLeftHand != -1 && ShieldBlockMontage)
+	if(EquippedLeftHand != -1 && ShieldBlockMontage && Stamina > MinStamina)
 	{
 		GetMesh()->GetAnimInstance()->Montage_Play(ShieldBlockMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
 		GetMesh()->GetAnimInstance()->Montage_JumpToSection("Start", ShieldBlockMontage);
@@ -804,6 +824,8 @@ void ACppUnrealCharacter::InputBlockPressed()
 
 		bIsBlocking = true;
 	}
+
+	bPressedBlocking = true;
 }
 
 void ACppUnrealCharacter::InputBlockReleased()
@@ -818,24 +840,30 @@ void ACppUnrealCharacter::InputBlockReleased()
 
 		bIsBlocking = false;
 	}
+
+	bPressedBlocking = false;
 }
 
 
 void ACppUnrealCharacter::InputAttack()
 {
-	if (!bIsAttacking && EquippedRightHand != -1 && SwordSlashMontage)
+	if (!bIsAttacking && EquippedRightHand != -1 && SwordSlashMontage && (Stamina - StaminaAttackLoseAmount) >= MinStamina)
 	{
 		GetMesh()->GetAnimInstance()->Montage_Play(SwordSlashMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
 		GetMesh()->GetAnimInstance()->Montage_JumpToSection("Start", SwordSlashMontage);
 		GetMesh()->GetAnimInstance()->Montage_SetEndDelegate(AnimEndDelegate);
 
+		Stamina -= StaminaAttackLoseAmount;
+		Stamina = FMath::Clamp(Stamina, (float)MinStamina, (float)MaxStamina);
+
 		bIsAttacking = true;
+		bIsBlocking = false;
 	}
 }
 
 void ACppUnrealCharacter::OnAnimationEnded(UAnimMontage* Montage, bool bInterrupted)
 {
-	if(Montage == ShieldBlockMontage && bInterrupted)
+	if(Montage == ShieldBlockMontage && !bPressedBlocking && bInterrupted)
 		bIsBlocking = false;
 	else if(Montage == SwordSlashMontage)
 		bIsAttacking = false;
