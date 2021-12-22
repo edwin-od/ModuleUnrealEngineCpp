@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 ACppAICharacter::ACppAICharacter()
@@ -90,6 +91,9 @@ void ACppAICharacter::Die()
 
 void ACppAICharacter::Attack(ACppUnrealCharacter* Enemy)
 {
+	if (SwordHitSound)
+		UGameplayStatics::PlaySound2D(this, SwordHitSound);
+
 	if (Enemy)
 		Enemy->ApplyDamage(Damage, GetActorForwardVector());
 }
@@ -126,6 +130,9 @@ void ACppAICharacter::ApplyDamage(int32 Amount, FVector Direction)
 
 		bIsHit = true;
 	}
+
+	if (HitSound)
+		UGameplayStatics::PlaySound2D(this, HitSound);
 
 	ChangeHP(Amount);
 }

@@ -146,8 +146,6 @@ void ACppUnrealCharacter::BeginPlay()
 	if (GameInstance && GameInstance->SaveSlotIndex != -1 && GameInstance->SaveSlotName != "")
 	{
 		LoadGame(GameInstance->SaveSlotIndex, GameInstance->SaveSlotName);
-		GameInstance->SaveSlotIndex = -1;
-		GameInstance->SaveSlotName = "";
 		return;
 	}
 
@@ -736,11 +734,7 @@ FItemsTableStruct ACppUnrealCharacter::GetItem(int32 Index)
 
 void ACppUnrealCharacter::AddCoins(int32 Amount)
 {
-	Coins += Amount;
-	if (Coins < 0)
-		Coins = 0;
-
-	PRINT("Coins : " + FString::FromInt(Coins));
+	Coins += FMath::Abs(Amount);
 }
 
 int32 ACppUnrealCharacter::GetCoins()
@@ -760,6 +754,9 @@ void ACppUnrealCharacter::WeaponBeginOverlap(UPrimitiveComponent* OverlappedComp
 
 void ACppUnrealCharacter::Attack(ACppAICharacter* Enemy)
 {
+	if (SwordHitSound)
+		UGameplayStatics::PlaySound2D(this, SwordHitSound);
+
 	if(Enemy)
 		Enemy->ApplyDamage(-FMath::Abs(GetItem(EquippedRightHand).ItemValue + DamageBoost), GetActorForwardVector());
 }
@@ -789,6 +786,9 @@ void ACppUnrealCharacter::ApplyDamage(int32 Amount, FVector Direction)
 		GetMesh()->GetAnimInstance()->Montage_Play(HitMontage, 1.0f, EMontagePlayReturnType::MontageLength, 0.0f, true);
 		GetMesh()->GetAnimInstance()->Montage_JumpToSection(Angle > 90.0f ? "Back" : "Front", HitMontage);
 	}
+
+	if (HitSound)
+		UGameplayStatics::PlaySound2D(this, HitSound);
 
 	bIsBlocking = false;
 
@@ -855,6 +855,9 @@ void ACppUnrealCharacter::InputAttack()
 
 		Stamina -= StaminaAttackLoseAmount;
 		Stamina = FMath::Clamp(Stamina, (float)MinStamina, (float)MaxStamina);
+
+		if (SwordSlashSound)
+			UGameplayStatics::PlaySound2D(this, SwordSlashSound);
 
 		bIsAttacking = true;
 		bIsBlocking = false;

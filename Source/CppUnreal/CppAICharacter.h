@@ -54,6 +54,12 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UPROPERTY(EditAnywhere)
+	USoundBase* HitSound;
+
+	UPROPERTY(EditAnywhere)
+	USoundBase* SwordHitSound;
+
+	UPROPERTY(EditAnywhere)
 	UAnimMontage* HitMontage;
 
 	UPROPERTY(EditAnywhere)

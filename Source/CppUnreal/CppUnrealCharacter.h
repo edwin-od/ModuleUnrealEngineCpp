@@ -226,6 +226,15 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(EditAnywhere)
+	USoundBase* HitSound;
+
+	UPROPERTY(EditAnywhere)
+	USoundBase* SwordSlashSound;
+
+	UPROPERTY(EditAnywhere)
+	USoundBase* SwordHitSound;
+
+	UPROPERTY(EditAnywhere)
 	UAnimMontage* ShieldBlockMontage;
 
 	UPROPERTY(EditAnywhere)
