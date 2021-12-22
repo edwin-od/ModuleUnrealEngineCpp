@@ -165,7 +165,7 @@ private:
 	UFUNCTION()
 	void AnyKeyPressed();
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void AnyKeyReleased();
 
 	UFUNCTION()

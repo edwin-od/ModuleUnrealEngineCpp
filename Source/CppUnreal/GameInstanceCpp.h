@@ -18,10 +18,13 @@ public:
 
 	UGameInstanceCpp();
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	bool bDontPlayIntro = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 SaveSlotIndex;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FString SaveSlotName;
 
 	UFUNCTION(BlueprintCallable)
