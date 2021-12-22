@@ -162,7 +162,7 @@ private:
 	UFUNCTION()
 	void Respawn();
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void AnyKeyPressed();
 
 	UFUNCTION(BlueprintCallable)
@@ -283,7 +283,7 @@ public:
 	float GrabDistance = 5000.0f;
 
 	UPROPERTY(EditAnywhere)
-	float IdleAnimationTimout = 5.0f;
+	float IdleAnimationTimout = 15.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<FItemsTableStruct> Inventory;
